@@ -45,43 +45,100 @@ shinyServer(function(input, output) {
     ## Remove any commas and dollar signs, and convert to a number
     data[,2] <- as.numeric(sub("\\,","",
                                sub("\\$","",data[,2])
-                               )
-                           )
+    )
+    )
     data
   })
   
-  ## Creates a data frame with labels for each of the periods
+  ## Creates a data frame with labels for each of the historical periods
+  historicalLabels <- reactive({
+    historical <- historical()
+    freq <- strtoi(input$frequency)
+    year <- strtoi(input$startYear)
+    period <- strtoi(input$startTime)
+    labels <- c(paste(toString(year), toString(period), sep="-"))
+    for(i in 1:(nrow(historical)-1)){
+      p <- (period + i) %% freq
+      if(p == 0){
+        p <- freq
+        label <- paste(toString(year), toString(p), sep="-")
+        labels <- c(labels, label)
+        year <- year + 1
+      }
+      else{
+        label <- paste(toString(year), toString(p), sep="-")
+        labels <- c(labels, label)
+      }
+    }
+    labels
+  })
   
+  ## Creates a data frame with labels for each of the periods to be forecasted
+  forecastLabels <- reactive({
+    start <- historicalLabels()
+    start <- start[length(start)]
+    start <- unlist(strsplit(toString(start), "[-]"))
+    year <- strtoi(start[1])
+    period <- strtoi(start[2])
+    freq <- strtoi(input$frequency)
+    if((period %% freq) == 0){
+      year <- year + 1
+    }
+    labels <- c()
+    for(i in 1:input$forecast_periods){
+      p <- (period + i) %% freq
+      if(p == 0){
+        p <- freq
+        label <- paste(toString(year), toString(p), sep="-")
+        labels <- c(labels, label)
+        year <- year + 1
+      }
+      else{
+        label <- paste(toString(year), toString(p), sep="-")
+        labels <- c(labels, label)
+      }
+    }
+    labels
+  })
   
   ## Converts the historical data to a time series
   tsData <- reactive({
+    print("tsData() start")
     data <- historical()
     data <- data[,2]
     ts <- ts(data,
-             #start=c(input$startYear, input$startTime), 
-             #end=c(input$endYear, input$endTime), 
+             start=c(input$startYear, input$startTime), 
+             end=c(input$endYear, input$endTime), 
              frequency = strtoi(input$frequency)
     )
-    print("TS:")
-    print(ts)
+    print("tsData() end")
     ts
   })
   
+  tsArima <- reactive({
+    data <- historical()
+    data <- data[,2]
+    ts <- ts(data, frequency=strtoi(input$frequency))
+    ts
+  })
   ##### Section 1.1: ARIMA #####
   
   ## Create an ARIMA model for forecasting
   arimaModel <- reactive({
-    ts <- tsData()
+    print("arimaModel() start")
+    
     if(input$arimaAuto){
+      ts <- tsData()
       fit <- auto.arima(ts)
-      print(fit)
     }
     else{
-       fit <- arima(ts,order=c(strtoi(input$arimaP),
-                              strtoi(input$arimaD), 
-                              strtoi(input$arimaQ)))
-      print(fit)
+      ts <- tsArima()
+      order <- c(strtoi(input$arimaP),
+                 strtoi(input$arimaD),
+                 strtoi(input$arimaQ))
+      fit <- arima(ts, order=order)
     }
+    print("arimaModel() end")
     fit
   })
   
@@ -103,15 +160,17 @@ shinyServer(function(input, output) {
   
   ## Creates an ARIMA model and returns a forecast based on that model.
   arimaData <- reactive({
+    print("arimaData() start")
     fit <- arimaModel()
-    print("Fit: ")
-    print(fit)
-    f <- forecast(fit#,
-                  #h = input$forecast_periods,
-                  #level=c(strtoi(input$confidence1), strtoi(input$confidence2))
+    print("Forecast start")
+    print("Class of fit:")
+    print(class(fit))
+    f <- forecast(fit,
+                  h = input$forecast_periods,
+                  level=c(strtoi(input$confidence1), strtoi(input$confidence2))
     )
-    print("Forecast:")
-    print(f)
+    print("Forecast End")
+    print("arimaData() end")
     f
   })
   
@@ -125,7 +184,7 @@ shinyServer(function(input, output) {
     if(input$holtAuto){
       h <- holt(ts,
                 h = input$forecast_periods,
-                damped=TRUE,
+                damped=input$holtDamp,
                 exponential= input$holtExp,
                 level=c(strtoi(input$confidence1), strtoi(input$confidence2))
       )
@@ -134,7 +193,7 @@ shinyServer(function(input, output) {
     else{
       h <- holt(ts,
                 h = input$forecast_periods,
-                damped = TRUE,
+                damped = input$holtDamp,
                 exponential= input$holtExp,
                 alpha = input$holtAlpha,
                 beta = input$holtBeta,
@@ -170,23 +229,31 @@ shinyServer(function(input, output) {
   ## for a forecast of the given number of periods
   hwData <- reactive({
     ts <- tsData()
+    if(input$hwseasonal == 1){
+      hws <- "additive"
+    }
+    else{
+      hws <- "multiplicative"
+    }
     ## If the user wants R to estimate the smoothing parameters
     if(input$hwAuto){
       hw <- hw(ts,
                h = input$forecast_periods,
-               damped=TRUE,
-               level=c(strtoi(input$confidence1), strtoi(input$confidence2))
+               damped=input$hwDamp,
+               level=c(strtoi(input$confidence1), strtoi(input$confidence2)),
+               seasonal=hws,
       )
     }
     ## If the user wants custom smoothing parameters
     else{
       hw <- hw(ts,
                h = input$forecast_periods,
-               damped = TRUE,
+               damped = input$hwDamp,
                alpha = input$hwAlpha,
                beta = input$hwBeta,
                gamma = input$hwGamma,
-               level=c(strtoi(input$confidence1), strtoi(input$confidence2))
+               level=c(strtoi(input$confidence1), strtoi(input$confidence2)),
+               seasonal=hws,
       )
     }
     hw
@@ -388,13 +455,21 @@ shinyServer(function(input, output) {
   ## Creates a summary sheet with the historical data and the expected value from
   ## each chosen forecasting method.
   createSummarySheet <- reactive({
-    ## Start with getting the historical data, and storing it in a well-formatted dataframe
+    ## Make the first column the labels for the periods
+    historicalLabels <- data.frame(historicalLabels())
+    forecastLabels <- data.frame(forecastLabels())
+    names(forecastLabels) <- names(historicalLabels)
+    col1 <- rbind(historicalLabels, forecastLabels)
+    ## Get the historical data, and store it in a well-formatted dataframe
     data <- historical()
     historical <- data.frame(data[,2])
     empty <- data.frame(matrix(nrow=input$forecast_periods, ncol=1))
     names(empty) <- names(historical)
     resultDF <- rbind(historical,empty)
-    colnames(resultDF) <- c("Historical")
+    ## Merge with the period labels
+    names(col1) <- names(resultDF)
+    resultDF <- cbind(col1, resultDF)
+    colnames(resultDF) <- c("Period", "Historical")
     ## Get the ARIMA data, convert it to a dataframe, take the first column (the expected value),
     ## make sure it's not in scientific format, and round it to 2 decimal places. Append it to the
     ## historical data, and add the column to the accumulating dataframe.
@@ -479,29 +554,43 @@ shinyServer(function(input, output) {
   prepareOutput <- reactive({
     ## Creates a new workbook with a summary table as the first sheet
     wb <- createSummarySheet()
+    ## Get the labels to bind to each dataframe
+    labels <- forecastLabels()
     ## If the user wants the ARIMA forecast, 
     ## write that to a new sheet in the workbook
     if(input$doArima){
+      data <- data.frame(arimaData())
+      data <- cbind(labels, data)
+      colnames(data)[1] <- "Period"
       addWorksheet(wb, "ARIMA Forecast")
-      writeData(wb, "ARIMA Forecast", data.frame(arimaData()))
+      writeData(wb, "ARIMA Forecast", data)
     }
     ## If the user wants the Holt forecast, 
     ## write that to a new sheet in the workboook
     if(input$doHolt){
+      data <- data.frame(holtData())
+      data <- cbind(labels, data)
+      colnames(data)[1] <- "Period"
       addWorksheet(wb, "Holt Forecast")
-      writeData(wb, "Holt Forecast", data.frame(holtData()))
+      writeData(wb, "Holt Forecast", data)
     }
     ## If the user wants the Holt-Winters forecast, 
     ## write that to a new sheet in the workbook
     if(input$doHW){
+      data <- data.frame(hwData())
+      data <- cbind(labels, data)
+      colnames(data)[1] <- "Period"
       addWorksheet(wb, "Holt-Winters Forecast")
-      writeData(wb, "Holt-Winters Forecast", data.frame(hwData()))
+      writeData(wb, "Holt-Winters Forecast", data)
     }
     ## If the user wants the CAGR forecast, 
     ## write that to a new sheet in the workbook
     if(input$doCAGR){
+      data <- data.frame(cagrData())
+      data <- cbind(labels, data)
+      colnames(data) <- c("Period", "CAGR")
       addWorksheet(wb, "CAGR Projection")
-      writeData(wb, "CAGR Projection", cagrData())
+      writeData(wb, "CAGR Projection", data)
     }
     ## Finally, write the historical data to a new 
     ## sheet, for easy reference

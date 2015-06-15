@@ -98,6 +98,8 @@ shinyUI(
                           column(4),
                           column(4,
                                  h2("2.) Select which types of forecasting you would like to run:"),
+                                 br(),
+                                 p("For more details on each of them, check out the Methodology page."),
                                  br()
                           ),
                           column(4)
@@ -329,6 +331,9 @@ shinyUI(
                                           checkboxInput("holtExp",
                                                         label="Fit exponential trend instead of linear?",
                                                         value=FALSE),
+                                          checkboxInput("holtDamp",
+                                                        label="Dampen the model?",
+                                                        value=TRUE),
                                           align ="center"
                                    ),
                                    column(5,
@@ -382,6 +387,10 @@ shinyUI(
                                                       value = 0,
                                                       step= 0.05
                                           ),
+                                          selectInput("hwseasonal", label="Additive or multiplicative?",choices=list("Additive" = 1, "Multiplicative" = 2), selected=1),
+                                          checkboxInput("hwDamp",
+                                                        label="Dampen the model?",
+                                                        value=TRUE),
                                           align ="center"
                                    ),
                                    column(5,
@@ -452,6 +461,12 @@ shinyUI(
                                    multiple variables for a regression model by looking at various characteristics of
                                    the historical data, such as seasonality, moving averages, year-over-year changes, etc."
                                  ),
+                                 p(
+                                  "This program is capable of estimating the parameters to use when creating the model. However, if
+                                  you'd like to adjust the inputs yourself, simply uncheck the box on the outputs page, and choose
+                                  the values you would like to use. One metric that you can use to judge the \"goodness of fit\" 
+                                  is paying attention to the AIC. The lower, the better."   
+                                 ),
                                  br(),
                                  p("More information on ARIMA models can be found ", tags$a(href="https://www.otexts.org/fpp/8", "here.")),
                                  br(),
@@ -466,11 +481,23 @@ shinyUI(
                                    and one for the trend (slope)). The name of “exponential smoothing” comes from the idea
                                    that the weights applied to the historical observations decrease exponentially the further
                                    back in time you go. Exponential smoothing is a middle-ground between two extremes: the
-                                   naïve method, which assumes that the most current observation is the only important one and
-                                   all previous observations provide no information for the future, and the average method, where
-                                   all future forecasts are equal to a simple average of the observed data. Holt modified this
-                                   method to better include trends."
+                                   naïve method, which assumes that the most current observation is the only important one,
+                                   and the average method, where all future forecasts are equal to a simple average of the 
+                                   observed data. Holt modified this method to better include trends."
                                  ),
+                                 p(
+                                   "The parameters for the level and trend can be estimated by R. If you woul like to adjust
+                                   them yourselves, uncheck the box for having R estimate the parameters, and manually adjust
+                                   the parameters by moving the sliders. Note that neither parameter can be 0 or 1. One indicator
+                                   of your model quality is the AIC score, which you should aim to lower."
+                                   ),
+                                 p(
+                                   "You also have the option of choosing if you want to dampen the model, and if you want to
+                                   fit and exponential or linear trend. You can modify these options even while R is estimating
+                                   the parameters for level and trend. Dampening models has shown to reduce over-forecasting.
+                                   Exponential models tend to be less conservative than linear models do to exponential growth
+                                   or decline, but in some scenarios can provbe to be a better fit."
+                                   ),
                                  br(),
                                  p("More information on Holt's Exponential Smoothing can be found ", tags$a(href="https://www.otexts.org/fpp/7", "here.")),
                                  br(),
@@ -491,8 +518,18 @@ shinyUI(
                                  br(),
                                  p(
                                    "Holt and Winters extended Holt’s original method to capture seasonality (increases and
-                                   decreases that are fixed to a time period)."
+                                   decreases that are fixed to a time period). Like Holt's original method, it has equations
+                                   for level and trend. Also like the Holt model, Holt-Winters models can be dampened. What makes 
+                                   these models different is that they add a third equation to account for seasonality."
                                  ),
+                                 p(
+                                   "For the seasonal component, you have the option of choosing the additive or multiplicative
+                                   method. In the additive method, the seasonal component is an absolute number for each given
+                                   period within a year, while it is a percentage when using the multiplicative method. As such,
+                                   you should use the additive method when seasonal variations are roughly constant throughout, 
+                                   while you should choose the multiplicative method if the seasonal variations change proportionally
+                                   to the level of the series."
+                                   ),
                                  br(),
                                  p("More information on Holt-Winters Exponential Smoothing can be found ", tags$a(href="https://www.otexts.org/fpp/7/5", "here.")),
                                  br(),
