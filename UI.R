@@ -54,14 +54,13 @@ shinyUI(
                         ),
                         
                         ###### Page 1: Input ########
-                        ## Title
-                        div(tags$u(h1("EP Forecasting Tool"), align="center", float="left", width=8)),
-                        br(),
-                        br(),
+                        
                         ## Section 1
                         fluidRow(
                           column(4),
                           column(4,
+                                 ## Title
+                                 div(tags$u(h1("EP Forecasting Tool"), align="center", float="left", width=8)),
                                  div(
                                    h3("1.) Select the File Containing Your Historical Data"),
                                    br(),
@@ -110,13 +109,13 @@ shinyUI(
                                  ## ARIMA Checkbox
                                  checkboxInput("doArima", label = "ARIMA", value = FALSE),
                                  br(),
-                                 ## Holt Checkbox
-                                 checkboxInput("doHolt", label = "Holt's Exponential Smoothing", value = FALSE),
+                                 ## Holt-Winters Chechbox
+                                 checkboxInput("doHW", label = "Holt-Winters Exponential Smoothing", value = FALSE),
                                  br()
                           ),
                           column(2,
-                                 ## Holt-Winters Chechbox
-                                 checkboxInput("doHW", label = "Holt-Winters Exponential Smoothing", value = FALSE),
+                                 ## Holt Checkbox
+                                 checkboxInput("doHolt", label = "Holt's Exponential Smoothing", value = FALSE),
                                  br(),
                                  ## CAGR Checkbox
                                  checkboxInput("doCAGR", label = "Compound Annual Growth Rate (CAGR)", value = FALSE),
@@ -152,7 +151,8 @@ shinyUI(
                                  ## Time series frequency button: The id# equals the number of periods per year
                                  radioButtons("frequency", 
                                               label = span("What is the frequency of your data?"),
-                                              choices = list("Quarterly" = 4, 
+                                              choices = list("Annual" = 1,
+                                                             "Quarterly" = 4, 
                                                              "Monthly" = 12,
                                                              "Daily" = 365),
                                               selected = 4),
@@ -169,7 +169,7 @@ shinyUI(
                                               value = 2014),
                                  br(),
                                  numericInput("startTime",
-                                              label = span("In which period (quarter, month, etc.) does the historical data start?"),
+                                              label = span("In which period (quarter, month, etc.) does the historical data start? (Select 1 for annual data)"),
                                               value = 1),
                                  br()
                           ),
@@ -180,7 +180,7 @@ shinyUI(
                                               value = 2015),
                                  br(),
                                  numericInput("endTime", 
-                                              label = span("In which period does the historical data end?"),
+                                              label = span("In which period does the historical data end? (Select 1 for annual data)"),
                                               value = 4),
                                  br()
                                  
@@ -238,8 +238,8 @@ shinyUI(
                                    )
                                  )
                           ),
-                        column(4)
-                      ),
+                          column(4)
+                        ),
                         fluidRow(
                           column(5),
                           column(2,
@@ -273,27 +273,56 @@ shinyUI(
                                  plotOutput("arimaPlot"),
                                  br(),
                                  fluidRow(
-                                   column(6,
-                                          selectInput("arimaP", label = span("Order of autoregressive part: "), 
-                                                      choices = list("0" = 0,
-                                                                     "1" = 1,
-                                                                     "2" = 2,
-                                                                     "3" = 3),
-                                                      selected = 0),
-                                          selectInput("arimaD", label = span("Degree of first differencing: "), 
-                                                      choices = list("0" = 0,
-                                                                     "1" = 1,
-                                                                     "2" = 2),
-                                                      selected = 0),
-                                          selectInput("arimaQ", label = span("Order of moving average part: "), 
-                                                      choices = list("0" = 0,
-                                                                     "1" = 1,
-                                                                     "2" = 2,
-                                                                     "3" = 3),
-                                                      selected = 0),
+                                   column(8,
+                                          fluidRow(
+                                            h4("ARIMA Model Orders"),
+                                            helpText("For these to take effect, you must uncheck the box to have R estimate the orders."),
+                                            column(6,
+                                                   h5("Non-Seasonal:"),
+                                                   selectInput("arimap", label = span("Order of autoregressive part:"), 
+                                                               choices = list("0" = 0,
+                                                                              "1" = 1,
+                                                                              "2" = 2,
+                                                                              "3" = 3),
+                                                               selected = 0),
+                                                   selectInput("arimad", label = span("Degree of first differencing:"), 
+                                                               choices = list("0" = 0,
+                                                                              "1" = 1,
+                                                                              "2" = 2),
+                                                               selected = 0),
+                                                   selectInput("arimaq", label = span("Order of moving average part:"), 
+                                                               choices = list("0" = 0,
+                                                                              "1" = 1,
+                                                                              "2" = 2,
+                                                                              "3" = 3),
+                                                               selected = 0),
+                                                   align="center"
+                                            ),
+                                            column(6,
+                                                   h5("Seasonal:"),
+                                                   selectInput("arimaP", label = span("Order of autoregressive part:"), 
+                                                               choices = list("0" = 0,
+                                                                              "1" = 1,
+                                                                              "2" = 2,
+                                                                              "3" = 3),
+                                                               selected = 0),
+                                                   selectInput("arimaD", label = span("Degree of seasonal differencing:"), 
+                                                               choices = list("0" = 0,
+                                                                              "1" = 1,
+                                                                              "2" = 2),
+                                                               selected = 0),
+                                                   selectInput("arimaQ", label = span("Order of moving average part:"), 
+                                                               choices = list("0" = 0,
+                                                                              "1" = 1,
+                                                                              "2" = 2,
+                                                                              "3" = 3),
+                                                               selected = 0),
+                                                   align="center"
+                                            )
+                                          ),
                                           align="center"
                                    ),
-                                   column(6,
+                                   column(4,
                                           checkboxInput("arimaAuto",
                                                         label= span("Let R estimate the best orders (recommended, overrides the above inputs)"),
                                                         value=TRUE),
@@ -313,7 +342,7 @@ shinyUI(
                                    column(1),
                                    column(5,
                                           h4("Smoothing Parameters:"),
-                                          helpText("Note: Trend cannot be greater than Level"),
+                                          helpText("Note: Trend cannot be greater than Level. Must uncheck box for R to estimate the parameters for these to take effect."),
                                           sliderInput("holtAlpha",
                                                       label ="Level (Alpha)", 
                                                       min = 0,
@@ -365,7 +394,7 @@ shinyUI(
                                    column(1),
                                    column(5,
                                           h4("Smoothing Parameters:"),
-                                          helpText("Note: It is required that Trend >= Level >= Seasonality"),
+                                          helpText("Note: Trend cannot be greater than Level. Must uncheck box for R to estimate the parameters for these to take effect."),
                                           sliderInput("hwAlpha",
                                                       label ="Level (Alpha)", 
                                                       min = 0,
@@ -422,7 +451,7 @@ shinyUI(
                           br(),
                           h4("For more information on each of the methods, see the \"Methodology\" tab."),
                           br(),
-                          h5(tags$b(tags$u("Note:")), " As a rule of thumb, remember that the model with the lowest AIC is usually the best model."),
+                          h5(tags$b(tags$u("Note:")), " As a rule of thumb, remember that the model with the lowest AIC is usually the best model, statistically."),
                           align="center"
                         ),
                         fluidRow(
@@ -462,7 +491,7 @@ shinyUI(
                                    the historical data, such as seasonality, moving averages, year-over-year changes, etc."
                                  ),
                                  p(
-                                  "This program is capable of estimating the parameters to use when creating the model. However, if
+                                   "This program is capable of estimating the parameters to use when creating the model. However, if
                                   you'd like to adjust the inputs yourself, simply uncheck the box on the outputs page, and choose
                                   the values you would like to use. One metric that you can use to judge the \"goodness of fit\" 
                                   is paying attention to the AIC. The lower, the better."   
@@ -490,14 +519,14 @@ shinyUI(
                                    them yourselves, uncheck the box for having R estimate the parameters, and manually adjust
                                    the parameters by moving the sliders. Note that neither parameter can be 0 or 1. One indicator
                                    of your model quality is the AIC score, which you should aim to lower."
-                                   ),
+                                 ),
                                  p(
                                    "You also have the option of choosing if you want to dampen the model, and if you want to
                                    fit and exponential or linear trend. You can modify these options even while R is estimating
                                    the parameters for level and trend. Dampening models has shown to reduce over-forecasting.
                                    Exponential models tend to be less conservative than linear models do to exponential growth
                                    or decline, but in some scenarios can provbe to be a better fit."
-                                   ),
+                                 ),
                                  br(),
                                  p("More information on Holt's Exponential Smoothing can be found ", tags$a(href="https://www.otexts.org/fpp/7", "here.")),
                                  br(),
@@ -529,7 +558,7 @@ shinyUI(
                                    you should use the additive method when seasonal variations are roughly constant throughout, 
                                    while you should choose the multiplicative method if the seasonal variations change proportionally
                                    to the level of the series."
-                                   ),
+                                 ),
                                  br(),
                                  p("More information on Holt-Winters Exponential Smoothing can be found ", tags$a(href="https://www.otexts.org/fpp/7/5", "here.")),
                                  br(),

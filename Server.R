@@ -25,7 +25,7 @@ shinyServer(function(input, output) {
   output$statusReport <- reactive({
     x <- "Status: Waiting..."
     if((input$doArima | input$doHolt | input$doHW | input$doCAGR) && !is.null(input$inputFile)){
-      x <- "Status: Analyzing... Check the \"Outputs\" tab!"
+      x <- "Status: Analyzing... Check the \"Outputs\" tab (top of page)!"
     }
     x
   })
@@ -56,18 +56,27 @@ shinyServer(function(input, output) {
     freq <- strtoi(input$frequency)
     year <- strtoi(input$startYear)
     period <- strtoi(input$startTime)
-    labels <- c(paste(toString(year), toString(period), sep="-"))
-    for(i in 1:(nrow(historical)-1)){
-      p <- (period + i) %% freq
-      if(p == 0){
-        p <- freq
-        label <- paste(toString(year), toString(p), sep="-")
-        labels <- c(labels, label)
+    if(input$frequency == 1){
+      labels <- c(toString(year))
+      for(i in 1:(nrow(historical)-1)){
         year <- year + 1
+        labels <- c(labels, toString(year))
       }
-      else{
-        label <- paste(toString(year), toString(p), sep="-")
-        labels <- c(labels, label)
+    }
+    else{
+      labels <- c(paste(toString(year), toString(period), sep="-"))
+      for(i in 1:(nrow(historical)-1)){
+        p <- (period + i) %% freq
+        if(p == 0){
+          p <- freq
+          label <- paste(toString(year), toString(p), sep="-")
+          labels <- c(labels, label)
+          year <- year + 1
+        }
+        else{
+          label <- paste(toString(year), toString(p), sep="-")
+          labels <- c(labels, label)
+        }
       }
     }
     labels
@@ -79,23 +88,31 @@ shinyServer(function(input, output) {
     start <- start[length(start)]
     start <- unlist(strsplit(toString(start), "[-]"))
     year <- strtoi(start[1])
-    period <- strtoi(start[2])
     freq <- strtoi(input$frequency)
-    if((period %% freq) == 0){
-      year <- year + 1
-    }
     labels <- c()
-    for(i in 1:input$forecast_periods){
-      p <- (period + i) %% freq
-      if(p == 0){
-        p <- freq
-        label <- paste(toString(year), toString(p), sep="-")
-        labels <- c(labels, label)
+    if(freq == 1){
+      for(i in 1:input$forecast_periods){
+        labels <- c(labels, toString(year))
         year <- year + 1
       }
-      else{
-        label <- paste(toString(year), toString(p), sep="-")
-        labels <- c(labels, label)
+    }
+    else{
+      period <- strtoi(start[2])
+      if((period %% freq) == 0){
+        year <- year + 1
+      }
+      for(i in 1:input$forecast_periods){
+        p <- (period + i) %% freq
+        if(p == 0){
+          p <- freq
+          label <- paste(toString(year), toString(p), sep="-")
+          labels <- c(labels, label)
+          year <- year + 1
+        }
+        else{
+          label <- paste(toString(year), toString(p), sep="-")
+          labels <- c(labels, label)
+        }
       }
     }
     labels
@@ -103,7 +120,6 @@ shinyServer(function(input, output) {
   
   ## Converts the historical data to a time series
   tsData <- reactive({
-    print("tsData() start")
     data <- historical()
     data <- data[,2]
     ts <- ts(data,
@@ -111,7 +127,6 @@ shinyServer(function(input, output) {
              end=c(input$endYear, input$endTime), 
              frequency = strtoi(input$frequency)
     )
-    print("tsData() end")
     ts
   })
   
@@ -125,20 +140,19 @@ shinyServer(function(input, output) {
   
   ## Create an ARIMA model for forecasting
   arimaModel <- reactive({
-    print("arimaModel() start")
-    
+    ts <- tsData()
     if(input$arimaAuto){
-      ts <- tsData()
       fit <- auto.arima(ts)
     }
     else{
-      ts <- tsArima()
-      order <- c(strtoi(input$arimaP),
+      order <- c(strtoi(input$arimap),
+                 strtoi(input$arimad),
+                 strtoi(input$arimaq))
+      seasonal <- c(strtoi(input$arimaP),
                  strtoi(input$arimaD),
                  strtoi(input$arimaQ))
-      fit <- arima(ts, order=order)
+      fit <- Arima(ts, order=order, seasonal=seasonal)
     }
-    print("arimaModel() end")
     fit
   })
   
@@ -160,17 +174,11 @@ shinyServer(function(input, output) {
   
   ## Creates an ARIMA model and returns a forecast based on that model.
   arimaData <- reactive({
-    print("arimaData() start")
     fit <- arimaModel()
-    print("Forecast start")
-    print("Class of fit:")
-    print(class(fit))
     f <- forecast(fit,
                   h = input$forecast_periods,
                   level=c(strtoi(input$confidence1), strtoi(input$confidence2))
     )
-    print("Forecast End")
-    print("arimaData() end")
     f
   })
   
