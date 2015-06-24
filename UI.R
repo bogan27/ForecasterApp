@@ -69,6 +69,7 @@ shinyUI(
                                    br(),
                                    tags$ul(
                                      tags$li("In a CSV file"),
+                                     tags$li("The columns should have headers/names"),
                                      tags$li("You must have at least 1 year of historical data"),
                                      tags$li("The data should be for regular, consistant time intervals (i.e. days, months, quarters, etc.)"),
                                      tags$li("The first column of your data should be your period labels (i.e. 'Q1 2015')"),

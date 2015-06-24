@@ -35,7 +35,7 @@ shinyServer(function(input, output) {
     inFile <- input$inputFile
     if (is.null(inFile))
       return(NULL)
-    data <- read.csv(inFile$datapath)
+    data <- read.csv(inFile$datapath, header=TRUE)
     data
   })
   
